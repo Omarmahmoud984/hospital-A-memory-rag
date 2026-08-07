@@ -10,6 +10,7 @@ import argparse
 import asyncio
 import json
 import os
+import shlex
 import sys
 
 
@@ -23,7 +24,11 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from mcp_protocol import JsonRpcEndpoint
+try:
+    from .mcp_protocol import JsonRpcEndpoint
+except ImportError:
+    from mcp_protocol import JsonRpcEndpoint
+
 from memory.short_term import ShortTermMemory, Message, MessageRole
 from memory.scratchpad import Scratchpad, PlanStep
 from memory.episodic import EpisodicMemory, EventCategory
@@ -35,6 +40,11 @@ from context_eval.masking import ObservationMaskingStrategy
 from context_eval.zone_pruning import ZonePruningStrategy
 from context_eval.sliding_window import SlidingWindowStrategy
 from context_eval.summarization import RecursiveSummarizationStrategy
+
+try:
+    from .rag_adapter import RAGService
+except ImportError:
+    from rag_adapter import RAGService
 
 
 DEFAULT_SERVER_ARGS = [
@@ -48,10 +58,11 @@ DEFAULT_SERVER_ARGS = [
     ),
 ]
 
-SERVER_ARGS = (
-    os.environ.get("MCP_SERVER_CMD", "").split()
-    or DEFAULT_SERVER_ARGS
-)
+MCP_SERVER_CMD = os.environ.get("MCP_SERVER_CMD", "")
+if MCP_SERVER_CMD:
+    SERVER_ARGS = shlex.split(MCP_SERVER_CMD)
+else:
+    SERVER_ARGS = DEFAULT_SERVER_ARGS
 class MediCoreAgent:
 
     def __init__(self, auto_confirm=False):
@@ -81,6 +92,8 @@ class MediCoreAgent:
             episodic_memory=self.episodic_memory,
             semantic_memory=self.semantic_memory,
         )
+
+        self.rag_service = RAGService(self, architecture=os.environ.get("RAG_ARCHITECTURE", "hybrid"))
 
         # --- Initialize Context Window Strategy ---
         # Defaulting to benchmark-winning ObservationMaskingStrategy
@@ -158,6 +171,7 @@ class MediCoreAgent:
             {}
         )
         await self._refresh_tools()
+        await self.rag_service.initialize()
 
 
         print("MCP Client Ready")
@@ -348,6 +362,12 @@ class MediCoreAgent:
             self.scratchpad.store_partial_tool_result(call["name"], result)
             self.scratchpad.update_plan_step(step_number=1, status="completed", result=str(result))
 
+        if not call:
+            print("  - No structured tool matched; using RAG fallback for policy retrieval")
+            rag_result = self.rag_service.answer_question(user_text)
+            print(f"  - RAG Answer supported: {rag_result['verification']['supported']}")
+            return rag_result
+
         # Step 5: Consolidation Pass over Episodic Memory
         cons_report = self.consolidation_engine.run_consolidation(min_importance=0.5)
         print(f"  - Periodic Consolidation: {cons_report.facts_created} created, {cons_report.facts_updated} updated, {cons_report.facts_superseded} superseded")
@@ -529,6 +549,8 @@ async def run_interactive():
             )
 
             print(result)
+
+        await agent.stop()
 
 
 

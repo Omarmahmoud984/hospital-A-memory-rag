@@ -1,0 +1,13 @@
+MERIDIAN HOSPITAL EMERGENCY TRIAGE GUIDELINES
+
+1. RED LEVEL (Critical / Life-Threatening):
+   - Conditions: Cardiac arrest, severe trauma, respiratory failure.
+   - Action: Immediate assignment to ICU Bed or Operating Room. Set status to 'ICU' or 'Surgery'.
+
+2. YELLOW LEVEL (Urgent):
+   - Conditions: Severe asthma, acute abdominal pain, high fever.
+   - Action: Admit patient and assign attending Doctor. Set status to 'Admitted'.
+
+3. GREEN LEVEL (Non-Urgent):
+   - Conditions: Minor lacerations, sprains, mild symptoms.
+   - Action: Register patient, set status to 'Waiting'.

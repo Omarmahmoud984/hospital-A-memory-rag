@@ -5,7 +5,21 @@ agent/test_e2e.py
 Fixed end-to-end tests covering protocol concerns from the agent's side.
 """
 import asyncio
+import os
 import sys
+
+MCP_SERVER_CMD = os.environ.get("MCP_SERVER_CMD")
+if not MCP_SERVER_CMD:
+    server_script = os.path.join(os.path.abspath(os.path.dirname(__file__)), "db__server.py")
+    os.environ["MCP_SERVER_CMD"] = f'"{sys.executable}" -u "{server_script}"'
+
+if not os.environ.get("MERIDIAN_DB_PATH"):
+    db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "meridian_hospital.db")
+    os.environ["MERIDIAN_DB_PATH"] = db_path
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
 
 from agent import MediCoreAgent
 
@@ -153,4 +167,6 @@ async def main():
 
 
 if __name__ == "__main__":
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     asyncio.run(main())
