@@ -1,0 +1,4 @@
+OPERATING ROOM (OR) PROTOCOLS:
+
+- Rooms must be marked 'Maintenance' immediately after surgical procedures.
+- Status can only be changed to 'Available' after full sanitation verification.
