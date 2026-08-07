@@ -25,7 +25,7 @@ if PROJECT_ROOT not in sys.path:
 
 from mcp_protocol import JsonRpcEndpoint
 from memory.short_term import ShortTermMemory, Message, MessageRole
-from memory.scratchpad import Scratchpad, PlanStep
+from memory.scratchpad import Scratchpad, PlanStep, TaskStatus
 from memory.episodic import EpisodicMemory, EventCategory
 from memory.router import PromoteOrDropRouter
 from memory.semantic import SemanticMemory
@@ -320,7 +320,8 @@ class MediCoreAgent:
 
         # Step 3: Query Semantic Memory & Episodic Memory
         recalled_facts = self.semantic_memory.search_knowledge(user_text)
-        recent_episodes = self.episodic_memory.get_recent_events(limit=3)
+        all_episodes = self.episodic_memory.get_all_events()
+        recent_episodes = all_episodes[-3:] if len(all_episodes) > 3 else all_episodes
 
         print(f"\n[MEMORY CONTEXT]")
         print(f"  - Active Short-Term Buffer: {self.short_term_memory.count} messages ({self.short_term_memory.total_tokens} tokens)")
@@ -333,8 +334,9 @@ class MediCoreAgent:
         if call:
             print(f"  - Agent Scratchpad Plan: Step 1 -> Execute tool '{call['name']}'")
             self.scratchpad.set_execution_plan([
-                PlanStep(step_number=1, description=f"Call tool {call['name']}", status="in_progress")
+                f"Call tool {call['name']}"
             ])
+            self.scratchpad.update_plan_step(step_number=1, status=TaskStatus.IN_PROGRESS)
 
             tool_msg = Message(role=MessageRole.TOOL_CALL, content=json.dumps(call))
             self.short_term_memory.add_message(tool_msg)
@@ -346,7 +348,7 @@ class MediCoreAgent:
             self.short_term_memory.add_message(obs_msg)
 
             self.scratchpad.store_partial_tool_result(call["name"], result)
-            self.scratchpad.update_plan_step(step_number=1, status="completed", result=str(result))
+            self.scratchpad.update_plan_step(step_number=1, status=TaskStatus.COMPLETED, result=str(result))
 
         # Step 5: Consolidation Pass over Episodic Memory
         cons_report = self.consolidation_engine.run_consolidation(min_importance=0.5)
@@ -354,7 +356,7 @@ class MediCoreAgent:
 
         # Step 6: Prepare Pruned Context Payload for LLM
         payload = self.prepare_context_payload(max_context_tokens=3500)
-        print(f"  - Context Window Payload Pruned via [{self.context_strategy.__class__.__name__}]: {len(payload['pruned_messages'])} msgs remaining, {payload['metrics']['pruned_count']} pruned")
+        print(f"  - Context Window Payload Pruned via [{self.context_strategy.__class__.__name__}]: {len(payload['formatted_context'].messages)} msgs remaining, {payload['formatted_context'].pruned_count} pruned")
 
         return result
 
@@ -366,7 +368,7 @@ class MediCoreAgent:
         3. Applies active context strategy (e.g., ObservationMasking) to prune transcript.
         4. Returns model-ready payload.
         """
-        plan_str = ", ".join([f"Step {s.step_number}: {s.description} ({s.status})" for s in self.scratchpad.state.execution_plan]) or "No active plan"
+        plan_str = ", ".join([f"Step {s.step_number}: {s.description} ({s.status.value if hasattr(s.status, 'value') else s.status})" for s in self.scratchpad.state.execution_plan]) or "No active plan"
         scratchpad_header = (
             f"--- AGENT SCRATCHPAD ---\n"
             f"Goal: {self.scratchpad.state.current_goal or 'None'}\n"
@@ -375,16 +377,16 @@ class MediCoreAgent:
             f"-------------------------\n"
         )
 
-        raw_msgs = [m.to_dict() for m in self.short_term_memory.get_messages()]
-        pruned_msgs, metrics = self.context_strategy.prune_context(
-            messages=raw_msgs,
-            max_tokens=max_context_tokens,
+        formatted_context = self.context_strategy.prepare_context(
+            short_term_memory=self.short_term_memory,
+            scratchpad=self.scratchpad,
+            system_prompt=scratchpad_header,
+            max_context_tokens=max_context_tokens,
         )
 
         return {
             "scratchpad_header": scratchpad_header,
-            "pruned_messages": pruned_msgs,
-            "metrics": metrics,
+            "formatted_context": formatted_context,
         }
 
 

@@ -132,10 +132,6 @@ class SemanticMemory:
         """Retrieve a fact by its unique ID."""
         return self._facts.get(fact_id)
 
-    def get_active_facts() -> List[SemanticFact]:
-        """Return all facts currently marked ACTIVE."""
-        return [f for f in self._facts.values() if f.state == FactState.ACTIVE]
-
     def get_active_facts(self) -> List[SemanticFact]:
         """Return all facts currently marked ACTIVE."""
         return [f for f in self._facts.values() if f.state == FactState.ACTIVE]

@@ -177,6 +177,8 @@ class PromoteOrDropRouter:
         Returns:
             Tuple of (Decision, Rationale String, Optional Category, Importance Score).
         """
+        content_lower = message.content.lower().strip()
+
         # 1. Check for explicit user preferences or critical medical/operational decisions FIRST
         if any(kw in content_lower for kw in ["prefer", "preference", "like", "dislike"]):
             return (
@@ -251,9 +253,7 @@ class PromoteOrDropRouter:
             0.3,
         )
 
-    def get_audit_logs() -> List[RouterLogEntry]:
-        """Return shallow copy of all recorded audit log entries."""
-        return list(self._audit_logs)
+
 
     def get_audit_logs(self) -> List[RouterLogEntry]:
         """Return shallow copy of all recorded audit log entries."""

@@ -235,11 +235,6 @@ class Scratchpad:
 
     # --- Reset & Lifecycle ---
 
-    def reset() -> None:
-        """Completely reset the scratchpad working memory to empty state."""
-        self._state = ScratchpadState()
-        logger.info("Scratchpad state reset.")
-
     def reset(self) -> None:
         """Completely reset the scratchpad working memory to empty state."""
         self._state = ScratchpadState()
