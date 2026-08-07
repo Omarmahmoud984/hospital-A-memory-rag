@@ -31,6 +31,11 @@ from memory.router import PromoteOrDropRouter
 from memory.semantic import SemanticMemory
 from memory.consolidation import SemanticConsolidationEngine
 
+from context_eval.masking import ObservationMaskingStrategy
+from context_eval.zone_pruning import ZonePruningStrategy
+from context_eval.sliding_window import SlidingWindowStrategy
+from context_eval.summarization import RecursiveSummarizationStrategy
+
 
 DEFAULT_SERVER_ARGS = [
     sys.executable,
@@ -73,6 +78,10 @@ class MediCoreAgent:
             episodic_memory=self.episodic_memory,
             semantic_memory=self.semantic_memory,
         )
+
+        # --- Initialize Context Window Strategy ---
+        # Defaulting to benchmark-winning ObservationMaskingStrategy
+        self.context_strategy = ObservationMaskingStrategy()
 
 
     async def start(self):
@@ -149,6 +158,10 @@ class MediCoreAgent:
 
 
         print("MCP Client Ready")
+
+    def supports(self, capability: str) -> bool:
+        """Check if server advertises support for a specific protocol capability."""
+        return capability in self.server_capabilities
 
 
 
@@ -272,6 +285,18 @@ class MediCoreAgent:
             }
         )
 
+    async def read_resource(self, uri: str):
+        return await self.endpoint.send_request(
+            "resources/read",
+            {"uri": uri}
+        )
+
+    async def get_prompt(self, name: str, arguments: dict = None):
+        return await self.endpoint.send_request(
+            "prompts/get",
+            {"name": name, "arguments": arguments or {}}
+        )
+
     async def execute_agent_turn(self, user_text: str):
         """
         Executes a full turn demonstrating Memory & Tool interaction:
@@ -324,7 +349,40 @@ class MediCoreAgent:
         cons_report = self.consolidation_engine.run_consolidation(min_importance=0.5)
         print(f"  - Periodic Consolidation: {cons_report.facts_created} created, {cons_report.facts_updated} updated, {cons_report.facts_superseded} superseded")
 
+        # Step 6: Prepare Pruned Context Payload for LLM
+        payload = self.prepare_context_payload(max_context_tokens=3500)
+        print(f"  - Context Window Payload Pruned via [{self.context_strategy.__class__.__name__}]: {len(payload['pruned_messages'])} msgs remaining, {payload['metrics']['pruned_count']} pruned")
+
         return result
+
+    def prepare_context_payload(self, max_context_tokens: int = 3500) -> dict:
+        """
+        Connects Short-Term Memory and Scratchpad to the Context Window Strategy:
+        1. Formats Scratchpad state into a protected header.
+        2. Retrieves raw short-term messages.
+        3. Applies active context strategy (e.g., ObservationMasking) to prune transcript.
+        4. Returns model-ready payload.
+        """
+        plan_str = ", ".join([f"Step {s.step_number}: {s.description} ({s.status})" for s in self.scratchpad.state.execution_plan]) or "No active plan"
+        scratchpad_header = (
+            f"--- AGENT SCRATCHPAD ---\n"
+            f"Goal: {self.scratchpad.state.current_goal or 'None'}\n"
+            f"Subgoal: {self.scratchpad.state.current_subgoal or 'None'}\n"
+            f"Plan: {plan_str}\n"
+            f"-------------------------\n"
+        )
+
+        raw_msgs = [m.to_dict() for m in self.short_term_memory.get_messages()]
+        pruned_msgs, metrics = self.context_strategy.prune_context(
+            messages=raw_msgs,
+            max_tokens=max_context_tokens,
+        )
+
+        return {
+            "scratchpad_header": scratchpad_header,
+            "pruned_messages": pruned_msgs,
+            "metrics": metrics,
+        }
 
 
 
