@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from enum import Enum
 import json
 import logging
-from typing import Any, Dict, List, Optional, Predicate
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -145,10 +145,6 @@ class EpisodicMemory:
     def get_event(self, event_id: str) -> Optional[EpisodicEvent]:
         """Retrieve a specific event by its ID."""
         return self._events.get(event_id)
-
-    def get_all_events(() -> List[EpisodicEvent]:
-        """Return all recorded events sorted chronologically."""
-        return sorted(self._events.values(), key=lambda e: e.timestamp)
 
     def get_all_events(self) -> List[EpisodicEvent]:
         """Return all recorded events sorted chronologically."""

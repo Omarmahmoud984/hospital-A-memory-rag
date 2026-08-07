@@ -226,20 +226,9 @@ class ShortTermMemory:
         """Return a shallow copy of all active messages in the buffer."""
         return list(self._buffer)
 
-    def peek_latest(() -> Optional[Message]:
-        """Return the most recent message without modifying the buffer."""
-        return self._buffer[-1] if self._buffer else None
-
     def peek_latest(self) -> Optional[Message]:
         """Return the most recent message without modifying the buffer."""
         return self._buffer[-1] if self._buffer else None
-
-    def clear(() -> List[Message]:
-        """Clear all messages from buffer and return evicted items."""
-        evicted_items = list(self._buffer)
-        self._buffer.clear()
-        self._total_tokens = 0
-        return evicted_items
 
     def clear(self) -> List[Message]:
         """Clear all messages from buffer and return cleared items."""
