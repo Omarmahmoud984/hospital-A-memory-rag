@@ -43,18 +43,21 @@ class NaiveRAG:
         )
 
     def answer(self, question: str) -> dict:
+        import time
+        start_t = time.perf_counter()
         chunks = [item[0] for item in self.db.search(question, k=self.top_k)]
         prompt = self.build_prompt(question, chunks)
         answer = self.generator.generate(prompt)
         verification = None
         if self.verifier:
             verification = self.verifier.verify(answer, chunks)
+        latency = time.perf_counter() - start_t
         return {
             "architecture": "naive",
             "question": question,
             "answer": answer,
             "chunks": chunks,
             "verification": verification,
-            "latency_seconds": self.generator.last_latency_seconds,
+            "latency_seconds": latency,
             "token_usage": self.generator.last_token_usage,
         }

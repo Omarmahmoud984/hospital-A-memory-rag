@@ -162,6 +162,8 @@ class GraphRAG:
 
     def answer(self, question: str) -> dict:
         """Execute full Graph RAG pipeline: seed extraction -> graph traversal -> vector retrieval -> synthesis."""
+        import time
+        start_t = time.perf_counter()
         seeds = self._extract_seed_entities(question)
         graph_paths = self.traverse_subgraph(seeds)
         
@@ -175,6 +177,7 @@ class GraphRAG:
         if self.verifier:
             verification = self.verifier.verify(answer, chunks)
 
+        latency = time.perf_counter() - start_t
         return {
             "architecture": "graph_rag",
             "question": question,
@@ -182,6 +185,6 @@ class GraphRAG:
             "chunks": chunks,
             "graph_paths": graph_paths,
             "verification": verification,
-            "latency_seconds": self.generator.last_latency_seconds,
+            "latency_seconds": latency,
             "token_usage": self.generator.last_token_usage,
         }

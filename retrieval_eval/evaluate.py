@@ -91,17 +91,24 @@ def run_evaluation():
 
     output_path = os.path.join(os.path.dirname(__file__), "evaluation_summary.csv")
     with open(output_path, "w", encoding="utf-8", newline="") as csvfile:
-        fieldnames = ["architecture", "accuracy", "support_rate", "avg_latency", "avg_tokens"]
+        fieldnames = ["architecture", "accuracy", "support_rate", "avg_latency_ms", "avg_tokens"]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         for row in summary:
-            writer.writerow(row)
+            writer.writerow({
+                "architecture": row["architecture"],
+                "accuracy": row["accuracy"],
+                "support_rate": row["support_rate"],
+                "avg_latency_ms": round(row["avg_latency"] * 1000.0, 2),
+                "avg_tokens": row["avg_tokens"],
+            })
 
     print("RAG Evaluation Summary")
-    print("architecture | accuracy | support_rate | avg_latency | avg_tokens")
+    print("architecture | accuracy | support_rate | avg_latency_ms | avg_tokens")
     for row in summary:
+        latency_ms = row['avg_latency'] * 1000.0
         print(
-            f"{row['architecture']} | {row['accuracy']:.2f} | {row['support_rate']:.2f} | {row['avg_latency']:.3f} | {row['avg_tokens']:.0f}"
+            f"{row['architecture']} | {row['accuracy']:.2f} | {row['support_rate']:.2f} | {latency_ms:.2f} ms | {row['avg_tokens']:.0f}"
         )
     print(f"Saved summary to: {output_path}")
 

@@ -31,6 +31,8 @@ class AgenticRAG:
         self.top_k = top_k
 
     def answer(self, question: str) -> dict:
+        import time
+        start_t = time.perf_counter()
         query = question
         all_chunks: List[Chunk] = []
         for round_number in range(1, self.max_rounds + 1):
@@ -49,13 +51,14 @@ class AgenticRAG:
         verification = None
         if self.verifier:
             verification = self.verifier.verify(answer, all_chunks)
+        latency = time.perf_counter() - start_t
         return {
             "architecture": "agentic",
             "question": question,
             "answer": answer,
             "chunks": all_chunks,
             "verification": verification,
-            "latency_seconds": self.generator.last_latency_seconds,
+            "latency_seconds": latency,
             "token_usage": self.generator.last_token_usage,
         }
 

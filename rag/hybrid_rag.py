@@ -66,6 +66,8 @@ class HybridRAG:
         self.top_k = top_k
 
     def answer(self, question: str) -> dict:
+        import time
+        start_t = time.perf_counter()
         vector_results = self.db.search(question, k=self.top_k)
         keyword_results = [
             (chunk, bm25_score(question, chunk.text))
@@ -78,13 +80,14 @@ class HybridRAG:
         verification = None
         if self.verifier:
             verification = self.verifier.verify(answer, selected_chunks)
+        latency = time.perf_counter() - start_t
         return {
             "architecture": "hybrid",
             "question": question,
             "answer": answer,
             "chunks": selected_chunks,
             "verification": verification,
-            "latency_seconds": self.generator.last_latency_seconds,
+            "latency_seconds": latency,
             "token_usage": self.generator.last_token_usage,
         }
 
