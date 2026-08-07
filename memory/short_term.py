@@ -73,9 +73,9 @@ class Message:
     def __post_init__(self) -> None:
         if isinstance(self.role, str) and not isinstance(self.role, MessageRole):
             self.role = MessageRole(self.role)
-        if self.estimated_tokens <= 0 and self.content:
+        if self.estimated_tokens <= 0 and self.content is not None:
             # Simple fallback estimation: ~4 chars per token if not explicitly provided
-            self.estimated_tokens = max(1, len(self.content) // 4)
+            self.estimated_tokens = max(1, len(str(self.content)) // 4)
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize Message to dictionary format."""

@@ -177,18 +177,7 @@ class PromoteOrDropRouter:
         Returns:
             Tuple of (Decision, Rationale String, Optional Category, Importance Score).
         """
-        content_lower = message.content.lower().strip()
-
-        # 1. Check for small talk or simple acknowledgments
-        if content_lower in NOISE_KEYWORDS or len(content_lower) < 5:
-            return (
-                RoutingDecision.FORGET,
-                "Forgot because: Casual greeting, small talk, or simple confirmation with no operational value.",
-                None,
-                0.1,
-            )
-
-        # 2. Check for explicit user preferences or critical decisions
+        # 1. Check for explicit user preferences or critical medical/operational decisions FIRST
         if any(kw in content_lower for kw in ["prefer", "preference", "like", "dislike"]):
             return (
                 RoutingDecision.PROMOTE_TO_EPISODIC,
@@ -197,7 +186,7 @@ class PromoteOrDropRouter:
                 0.9,
             )
 
-        if any(kw in content_lower for kw in ["admit", "admission", "icu", "surgery", "emergency", "critical"]):
+        if any(kw in content_lower for kw in ["admit", "admission", "icu", "surgery", "emergency", "critical", "allergy", "allergic"]):
             return (
                 RoutingDecision.PROMOTE_TO_EPISODIC,
                 "Promoted because: Involves critical medical triage decision, patient admission, or bed allocation.",
@@ -211,6 +200,15 @@ class PromoteOrDropRouter:
                 "Promoted because: Describes a resolved incident, workflow status update, or clinical protocol.",
                 EventCategory.RESOLVED_INCIDENT,
                 0.85,
+            )
+
+        # 2. Check for small talk or simple noise AFTER checking high-value keywords
+        if content_lower in NOISE_KEYWORDS or (len(content_lower) < 5 and not message.role == MessageRole.TOOL_CALL):
+            return (
+                RoutingDecision.FORGET,
+                "Forgot because: Casual greeting, small talk, or simple confirmation with no operational value.",
+                None,
+                0.1,
             )
 
         # 3. Check message role characteristics

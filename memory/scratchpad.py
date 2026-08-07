@@ -116,7 +116,7 @@ class ScratchpadState:
     def from_dict(cls, data: Dict[str, Any]) -> "ScratchpadState":
         """Reconstruct state from dictionary."""
         plan_raw = data.get("execution_plan", [])
-        plan_steps = [PlanStep.from_dict(step) for step in plan_raw]
+        plan_steps = [PlanStep.from_dict(step) if isinstance(step, dict) else step for step in plan_raw]
         return cls(
             current_goal=data.get("current_goal"),
             current_subgoal=data.get("current_subgoal"),
