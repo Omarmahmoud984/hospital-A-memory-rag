@@ -17,6 +17,7 @@ from rag.generation import AnswerGenerator
 from rag.naive_rag import NaiveRAG
 from rag.hybrid_rag import HybridRAG
 from rag.agentic_rag import AgenticRAG
+from rag.graph_rag import GraphRAG
 from rag.self_rag import SelfRAGVerifier
 from retrieval_eval.questions import get_questions
 
@@ -53,6 +54,7 @@ def run_evaluation():
         "naive": NaiveRAG(db, generator, verifier),
         "hybrid": HybridRAG(db, generator, verifier),
         "agentic": AgenticRAG(db, generator, verifier),
+        "graph_rag": GraphRAG(db, generator, verifier),
     }
 
     results = []

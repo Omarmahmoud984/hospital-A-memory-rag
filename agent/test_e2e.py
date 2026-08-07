@@ -10,7 +10,7 @@ import sys
 
 MCP_SERVER_CMD = os.environ.get("MCP_SERVER_CMD")
 if not MCP_SERVER_CMD:
-    server_script = os.path.join(os.path.abspath(os.path.dirname(__file__)), "db__server.py")
+    server_script = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "mcp_server", "mock_server.py")
     os.environ["MCP_SERVER_CMD"] = f'"{sys.executable}" -u "{server_script}"'
 
 if not os.environ.get("MERIDIAN_DB_PATH"):

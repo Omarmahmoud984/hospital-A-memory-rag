@@ -13,6 +13,7 @@ from .generation import AnswerGenerator
 from .naive_rag import NaiveRAG
 from .hybrid_rag import HybridRAG
 from .agentic_rag import AgenticRAG
+from .graph_rag import GraphRAG
 from .self_rag import SelfRAGVerifier
 
 __all__ = [
@@ -26,5 +27,6 @@ __all__ = [
     "NaiveRAG",
     "HybridRAG",
     "AgenticRAG",
+    "GraphRAG",
     "SelfRAGVerifier",
 ]
