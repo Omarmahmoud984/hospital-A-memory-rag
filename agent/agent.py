@@ -19,9 +19,17 @@ if sys.platform == "win32":
     )
 
 
-sys.path.insert(0, os.path.dirname(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from mcp_protocol import JsonRpcEndpoint
+from memory.short_term import ShortTermMemory, Message, MessageRole
+from memory.scratchpad import Scratchpad, PlanStep
+from memory.episodic import EpisodicMemory, EventCategory
+from memory.router import PromoteOrDropRouter
+from memory.semantic import SemanticMemory
+from memory.consolidation import SemanticConsolidationEngine
 
 
 DEFAULT_SERVER_ARGS = [
@@ -51,6 +59,20 @@ class MediCoreAgent:
 
         self.auto_confirm = auto_confirm
         self.scripted_answers = []
+
+        # --- Initialize 4-Layer Memory Subsystem ---
+        self.episodic_memory = EpisodicMemory()
+        self.semantic_memory = SemanticMemory()
+        self.router = PromoteOrDropRouter(episodic_memory=self.episodic_memory)
+        self.short_term_memory = ShortTermMemory(
+            capacity=10,
+            overflow_callback=self.router.evaluate_and_route,
+        )
+        self.scratchpad = Scratchpad()
+        self.consolidation_engine = SemanticConsolidationEngine(
+            episodic_memory=self.episodic_memory,
+            semantic_memory=self.semantic_memory,
+        )
 
 
     async def start(self):
@@ -250,6 +272,60 @@ class MediCoreAgent:
             }
         )
 
+    async def execute_agent_turn(self, user_text: str):
+        """
+        Executes a full turn demonstrating Memory & Tool interaction:
+        1. Logs user input to Short-Term Memory.
+        2. Updates Scratchpad plan & goals.
+        3. Queries Semantic/Episodic memory for active knowledge.
+        4. Calls MCP tool if appropriate.
+        5. Logs tool output to Short-Term Memory & Scratchpad.
+        6. Runs periodic consolidation pass.
+        """
+        # Step 1: Push user message to Short-Term Memory
+        user_msg = Message(role=MessageRole.USER, content=user_text)
+        self.short_term_memory.add_message(user_msg)
+
+        # Step 2: Update Scratchpad working state
+        self.scratchpad.set_goal(f"Address user query: '{user_text}'")
+        self.scratchpad.add_reasoning_step(f"Evaluating intent for input: {user_text}")
+
+        # Step 3: Query Semantic Memory & Episodic Memory
+        recalled_facts = self.semantic_memory.search_knowledge(user_text)
+        recent_episodes = self.episodic_memory.get_recent_events(limit=3)
+
+        print(f"\n[MEMORY CONTEXT]")
+        print(f"  - Active Short-Term Buffer: {self.short_term_memory.count} messages ({self.short_term_memory.total_tokens} tokens)")
+        print(f"  - Recalled Semantic Facts: {[f.object_value for f in recalled_facts]}")
+        print(f"  - Recent Episodic Events: {[e.summary for e in recent_episodes]}")
+
+        # Step 4: Determine tool call
+        call = decide_next_tool_call(user_text)
+        result = None
+        if call:
+            print(f"  - Agent Scratchpad Plan: Step 1 -> Execute tool '{call['name']}'")
+            self.scratchpad.set_execution_plan([
+                PlanStep(step_number=1, description=f"Call tool {call['name']}", status="in_progress")
+            ])
+
+            tool_msg = Message(role=MessageRole.TOOL_CALL, content=json.dumps(call))
+            self.short_term_memory.add_message(tool_msg)
+
+            # Call MCP tool
+            result = await self.call_tool(call["name"], call["arguments"])
+
+            obs_msg = Message(role=MessageRole.TOOL_OBSERVATION, content=json.dumps(result))
+            self.short_term_memory.add_message(obs_msg)
+
+            self.scratchpad.store_partial_tool_result(call["name"], result)
+            self.scratchpad.update_plan_step(step_number=1, status="completed", result=str(result))
+
+        # Step 5: Consolidation Pass over Episodic Memory
+        cons_report = self.consolidation_engine.run_consolidation(min_importance=0.5)
+        print(f"  - Periodic Consolidation: {cons_report.facts_created} created, {cons_report.facts_updated} updated, {cons_report.facts_superseded} superseded")
+
+        return result
+
 
 
 def decide_next_tool_call(message):
@@ -349,36 +425,10 @@ async def run_demo():
 
 
     for msg in DEMO_SCRIPT:
-
-        print(
-            "\nUSER:",
-            msg
-        )
-
-
-        call = decide_next_tool_call(
-            msg
-        )
-
-
-        if call:
-
-            print(
-                "Calling:",
-                call["name"]
-            )
-
-
-            result = await agent.call_tool(
-                call["name"],
-                call["arguments"]
-            )
-
-
-            print(
-                "RESULT:",
-                result
-            )
+        print("\n=======================================================")
+        print("USER:", msg)
+        result = await agent.execute_agent_turn(msg)
+        print("AGENT RESULT:", result)
 
 
 
