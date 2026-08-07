@@ -65,6 +65,9 @@ class MediCoreAgent:
         self.auto_confirm = auto_confirm
         self.scripted_answers = []
 
+        # --- API Key Reading ---
+        self.api_key = os.environ.get("GEMINI_API_KEY")
+
         # --- Initialize 4-Layer Memory Subsystem ---
         self.episodic_memory = EpisodicMemory()
         self.semantic_memory = SemanticMemory()
